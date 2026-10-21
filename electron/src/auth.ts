@@ -1,50 +1,60 @@
-import { execFile } from "child_process"
-import { app, shell } from "electron"
+import { app, BrowserWindow } from "electron"
 import log from "electron-log"
-import path from "path"
-import { appScheme, authCallbackUrl } from "./scheme"
+import type { FirebaseCredential } from "./FirebaseCredential"
+import { authCallbackUrl } from "./scheme"
 
 const authURL = (redirectUri: string) => {
   const parameter = `redirect_uri=${redirectUri}`
 
   return app.isPackaged
-    ? `https://signal.vercel.app/auth?${parameter}`
+    ? `https://signalmidi.app/auth?${parameter}`
     : `http://localhost:3000/auth?${parameter}`
 }
 
-// In the mas build, return callbackURL when authentication is completed, and do not return anything when the application is launched with a schema.
-export const signInWithBrowser = async (): Promise<string | null> => {
-  if (process.mas) {
-    const callbackURL = await startAuthSession(
-      authURL(authCallbackUrl),
-      appScheme,
-    )
-    return callbackURL
-  }
-  const url = authURL(authCallbackUrl)
-  shell.openExternal(url)
-  return null
-}
-
-const startAuthSession = async (
-  url: string,
-  callbackURLScheme: string,
-): Promise<string> => {
+export const signInWithBrowser = async (): Promise<FirebaseCredential> => {
   return new Promise((resolve, reject) => {
-    log.info("electron:auth:startAuthSession", url, callbackURLScheme)
-    execFile(
-      path.join(__dirname, "..", "resources", "AuthSession_mac"),
-      [url, callbackURLScheme],
-      (error, stdout, stderr) => {
-        if (error) {
-          log.error("electron:auth:startAuthSession", error, stderr)
-          reject(error)
-        } else {
-          log.info("electron:auth:startAuthSession", stdout)
-          const callbackURL = stdout.trim()
-          resolve(callbackURL)
-        }
+    const url = authURL(authCallbackUrl)
+    const window = new BrowserWindow({
+      width: 800,
+      height: 600,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
       },
-    )
+    })
+    window.menuBarVisible = false
+    window.loadURL(url)
+
+    let isResolved = false
+
+    window.webContents.on("will-navigate", (_event, url) => {
+      log.info("will-navigate", url)
+      if (url.startsWith(authCallbackUrl)) {
+        log.info("authCallbackUrl", url)
+        window.close()
+
+        // get ID token from the URL
+        const urlObj = new URL(url)
+        const credential = urlObj.searchParams.get("credential")
+
+        if (credential === null) {
+          log.error("electron:event:open-url", "ID Token is missing")
+          reject(new Error("ID Token is missing"))
+          return
+        }
+
+        log.info("electron:event:open-url", "ID Token is received")
+
+        isResolved = true
+        resolve(JSON.parse(credential))
+      }
+    })
+
+    window.on("closed", () => {
+      if (!isResolved) {
+        reject(new Error("Window is closed"))
+      }
+    })
   })
 }

@@ -1,4 +1,5 @@
-import { BrowserWindow } from "electron"
+import type { BrowserWindow } from "electron"
+import type { FirebaseCredential } from "./FirebaseCredential"
 
 export type IpcEvent =
   | { name: "onNewFile" }
@@ -8,33 +9,28 @@ export type IpcEvent =
   | { name: "onRename" }
   | { name: "onImport" }
   | { name: "onExportWav" }
+  | { name: "onExportMp3" }
   | { name: "onUndo" }
   | { name: "onRedo" }
   | { name: "onCut" }
   | { name: "onCopy" }
   | { name: "onPaste" }
+  | { name: "onDuplicate" }
+  | { name: "onDelete" }
+  | { name: "onSelectAll" }
+  | { name: "onSelectNextNote" }
+  | { name: "onSelectPreviousNote" }
+  | { name: "onTransposeUpOctave" }
+  | { name: "onTransposeDownOctave" }
+  | { name: "onTranspose" }
+  | { name: "onQuantize" }
+  | { name: "onVelocity" }
   | { name: "onOpenSetting" }
   | { name: "onOpenHelp" }
   | { name: "onOpenFile"; params: { filePath: string } }
   | {
       name: "onBrowserSignInCompleted"
       params: { credential: FirebaseCredential }
-    }
-
-export type FirebaseCredential =
-  | {
-      providerId: "google.com"
-      idToken: string
-      accessToken: string
-    }
-  | {
-      providerId: "github.com"
-      accessToken: string
-    }
-  | {
-      providerId: "apple.com"
-      idToken: string
-      accessToken: string
     }
 
 export type ParamsForEvent<T extends IpcEvent["name"]> =

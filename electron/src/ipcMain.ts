@@ -1,17 +1,27 @@
-import { IpcMainInvokeEvent, app, dialog, ipcMain } from "electron"
-import { readFile, readdir, writeFile } from "fs/promises"
+import {
+  app,
+  type BrowserWindow,
+  dialog,
+  type IpcMainInvokeEvent,
+  ipcMain,
+} from "electron"
+import log from "electron-log"
+import { readdir, readFile, writeFile } from "fs/promises"
 import { isAbsolute, join } from "path"
 import { getArgument } from "./arguments"
 import { signInWithBrowser } from "./auth"
+import type { FirebaseCredential } from "./FirebaseCredential"
 
 interface Callbacks {
+  getMainWindow: () => BrowserWindow
   onReady: () => void
   onAuthStateChanged: (isLoggedIn: boolean) => void
   onMainWindowClose: () => void
-  onAuthCallback: (url: string) => void
+  onAuthCallback: (credential: FirebaseCredential) => void
 }
 
 const api = ({
+  getMainWindow,
   onReady,
   onAuthStateChanged,
   onMainWindowClose,
@@ -19,6 +29,25 @@ const api = ({
 }: Callbacks) => ({
   ready: () => {
     onReady()
+  },
+  showMessageBox: async (
+    _e: IpcMainInvokeEvent,
+    {
+      message,
+      buttons,
+      type,
+    }: {
+      message: string
+      buttons: string[]
+      type?: "none" | "info" | "error" | "question" | "warning"
+    },
+  ) => {
+    const result = await dialog.showMessageBox(getMainWindow(), {
+      message,
+      buttons,
+      type,
+    })
+    return result.response
   },
   showOpenDialog: async () => {
     const fileObj = await dialog.showOpenDialog({
@@ -74,9 +103,11 @@ const api = ({
   },
   getArgument: async () => getArgument(),
   openAuthWindow: async () => {
-    const callbackURL = await signInWithBrowser()
-    if (callbackURL) {
-      onAuthCallback(callbackURL)
+    try {
+      const credential = await signInWithBrowser()
+      onAuthCallback(credential)
+    } catch (e) {
+      log.error(e)
     }
   },
   authStateChanged: (_e: IpcMainInvokeEvent, isLoggedIn: boolean) => {

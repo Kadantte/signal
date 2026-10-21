@@ -7,7 +7,6 @@ import { defaultMenuTemplate } from "./defaultMenu"
 import { Ipc } from "./ipc"
 import { registerIpcMain } from "./ipcMain"
 import { menuTemplate } from "./menu"
-import { authCallbackUrl } from "./scheme"
 
 const isMas = process.mas === true
 
@@ -50,11 +49,22 @@ function updateMainMenu(isLoggedIn: boolean) {
       onClickRename: () => ipc.send("onRename"),
       onClickImport: () => ipc.send("onImport"),
       onClickExportWav: () => ipc.send("onExportWav"),
+      onClickExportMp3: () => ipc.send("onExportMp3"),
       onClickUndo: () => ipc.send("onUndo"),
       onClickRedo: () => ipc.send("onRedo"),
       onClickCut: () => ipc.send("onCut"),
       onClickCopy: () => ipc.send("onCopy"),
       onClickPaste: () => ipc.send("onPaste"),
+      onClickDuplicate: () => ipc.send("onDuplicate"),
+      onClickDelete: () => ipc.send("onDelete"),
+      onClickSelectAll: () => ipc.send("onSelectAll"),
+      onClickSelectNextNote: () => ipc.send("onSelectNextNote"),
+      onClickSelectPreviousNote: () => ipc.send("onSelectPreviousNote"),
+      onClickTransposeUpOctave: () => ipc.send("onTransposeUpOctave"),
+      onClickTransposeDownOctave: () => ipc.send("onTransposeDownOctave"),
+      onClickTranspose: () => ipc.send("onTranspose"),
+      onClickQuantize: () => ipc.send("onQuantize"),
+      onClickVelocity: () => ipc.send("onVelocity"),
       onClickSetting: () => ipc.send("onOpenSetting"),
       onClickHelp: () => ipc.send("onOpenHelp"),
       onClickSupport: () => openSupportPage(),
@@ -64,6 +74,9 @@ function updateMainMenu(isLoggedIn: boolean) {
 }
 
 registerIpcMain({
+  getMainWindow() {
+    return mainWindow
+  },
   onReady() {
     if (openFilePath !== null) {
       onOpenFile(openFilePath)
@@ -76,8 +89,10 @@ registerIpcMain({
   onMainWindowClose() {
     mainWindow.destroy()
   },
-  onAuthCallback(url) {
-    handleAuthCallback(url)
+  onAuthCallback(credential) {
+    log.info("electron:event:open-url", "ID Token is received")
+    mainWindow.focus()
+    ipc.send("onBrowserSignInCompleted", { credential })
   },
 })
 
@@ -94,7 +109,7 @@ const createWindow = (): void => {
     width: mainWindowState.width,
     height: mainWindowState.height,
     title: `signal v${app.getVersion()}`,
-    titleBarStyle: "hidden",
+    titleBarStyle: isMas ? "hidden" : "default",
     trafficLightPosition: { x: 10, y: 17 },
     webPreferences: {
       nodeIntegration: false,
@@ -165,7 +180,7 @@ app.on("activate", () => {
   }
 })
 
-if (!isMas) {
+if (process.platform === "darwin" && !isMas) {
   const additionalData = { filePath: getArgument() }
   type AdditionalData = typeof additionalData
   const gotTheLock = app.requestSingleInstanceLock(additionalData)
@@ -203,30 +218,8 @@ app.on("browser-window-focus", (_event, window) => {
   Menu.setApplicationMenu(window === mainWindow ? mainMenu : defaultMenu)
 })
 
-app.on("open-url", (_event, url) => {
-  log.info("electron:event:open-url", url)
-  if (url.startsWith(authCallbackUrl)) {
-    handleAuthCallback(url)
-  }
-})
-
-function handleAuthCallback(url: string) {
-  // get ID token from the URL
-  const urlObj = new URL(url)
-  const credential = urlObj.searchParams.get("credential")
-  if (credential === null) {
-    log.error("electron:event:open-url", "ID Token is missing")
-  } else {
-    log.info("electron:event:open-url", "ID Token is received")
-    mainWindow.focus()
-    ipc.send("onBrowserSignInCompleted", {
-      credential: JSON.parse(credential),
-    })
-  }
-}
-
 function openSupportPage() {
-  shell.openExternal("https://signal.vercel.app/support")
+  shell.openExternal("https://signalmidi.app/support")
 }
 
 log.info("electron:event:app-ready")

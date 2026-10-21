@@ -1,7 +1,10 @@
+.aider*
+
 # Logs
 logs
 *.log
 npm-debug.log*
+
 
 # Runtime data
 pids
@@ -41,3 +44,8 @@ dist
 
 *.env
 *.provisionprofile
+.turbo
+*.pfx
+
+# JetBrains data
+.idea
